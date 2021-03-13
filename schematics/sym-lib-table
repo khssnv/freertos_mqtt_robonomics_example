@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name Symbols)(type Legacy)(uri ${KIPRJMOD}/Symbols.lib)(options "")(descr ""))
+  (lib (name FreeRTOS_MQTT)(type Legacy)(uri ${KIPRJMOD}/FreeRTOS_MQTT.lib)(options "")(descr ""))
+)
