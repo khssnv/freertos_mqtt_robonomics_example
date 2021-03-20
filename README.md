@@ -14,20 +14,20 @@ Hardware setup
 We connect PMS3003 TXD PIN5 to ESP32 DevKitC IO17 to transfer measurements by UART.
 Also both devices require power and common ground.
 
-TODO: add wiring images/wiring.png
+![Wiring Diagram](images/wiring.png)
 
 Data flow
 ---------
 In order to deliver sensor measurements to Robonomics network, on a firmware level our goal is to get data from a sensor by embedded communication protocol it supports (UART in our case) and pass it to AIRA instance by MQTT / TCP.
 
-TODO: add diagram images/send.svg
+![Sending](images/send.svg)
 
 In our example we use AIRA cloud deployment available by public IP address and domain name assigned.
 On AIRA instance we receive with [Sensors Connectivity](https://wiki.robonomics.network/docs/sensors-connectivity/).
 Please check Sensors Connectivity package documentation describes how to forward data to Robonomics network in IPFS or Roboonmics on Substrate Datalog.
 Here we setup output to IPFS.
 
-TODO: add diagram images/recv.svg
+![Receiving](images/recv.svg)
 
 Now data available in Robonomics Network and we can read it with Robonomics IO utility.
 
@@ -101,6 +101,9 @@ TODO
 
 nix-shell -p mosquitto --run "mosquitto_sub -h localhost -t '/freertos_mqtt_robonomics_example/PMS3003-98:F4:AB:72:23:C4' | robonomics io write pubsub '/freertos_mqtt_robonomics_example/PMS3003-98:F4:AB:72:23:C4'"
 robonomics io read pubsub '/freertos_mqtt_robonomics_example/PMS3003-98:F4:AB:72:23:C4'
+
+Conclusion
+----------
 
 Original resources used
 -----------------------
