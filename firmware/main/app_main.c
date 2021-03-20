@@ -30,15 +30,20 @@
 #include "string.h"
 #include "driver/gpio.h"
 
-static const char *MQTT_TOPIC_BASE = "/freertos_mqtt_robonomics_example/PMS3003";
+
+// MQTT
+static const char *MQTT_TOPIC_BASE = "/freertos_mqtt_robonomics_example";
+
+// PMS3003 UART
+#define TXD_PIN (GPIO_NUM_16)
+#define RXD_PIN (GPIO_NUM_17)
+
 char mcu_id[18] = {0};
 char MQTT_TOPIC[50] = {0};
 static const char *TAG = "FREERTOS_MQTT_ROBONOMICS";
 static int mqtt_ready = 0;
 static const int RX_BUF_SIZE = 1024;
 #define TX_BUF_SIZE_BYTES 1024
-#define TXD_PIN (GPIO_NUM_16)
-#define RXD_PIN (GPIO_NUM_17)
 typedef struct {
 	uint16_t pm1_0;
 	uint16_t pm2_5;
@@ -168,7 +173,9 @@ static void uart_rx_task(void *arg)
             ESP_LOGI(UART_RX_TASK_TAG, "Raw data (%d bytes): '%s'", rxBytes, (char*)data);
             ESP_LOG_BUFFER_HEXDUMP(UART_RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
 			pm_data_t pm = decode_pms3003_data(data, 10); //atmospheric from 10th byte, standard from 4th
-            sprintf(txMsgStr, "ts=%ld, PM1=%d, PM2.5=%d, PM10=%d", now, pm.pm1_0, pm.pm2_5, pm.pm10);
+            // sprintf(txMsgStr, "ts=%ld, PM1=%d, PM2.5=%d, PM10=%d", now, pm.pm1_0, pm.pm2_5, pm.pm10);
+            memset(txMsgStr, 0, 255);
+            sprintf(txMsgStr, "{\"esp32mac\": \"%s\", \"software_version\": \"0.1.0\", \"sensordatavalues\": [{\"value_type\": \"SDS_P1\", \"value\": \"%d\"}, {\"value_type\": \"SDS_P2\", \"value\": \"%d\"}, {\"value_type\": \"GPS_lat\", \"value\": \"1\"}, {\"value_type\": \"GPS_lon\", \"value\": \"1\"}]}", mcu_id, pm.pm1_0, pm.pm2_5);
             ESP_LOGI(UART_RX_TASK_TAG, "Writing to buffer: '%s'", txMsgStr);
             xMessageBufferSend(txMsgBuf, (void*) txMsgStr, strlen(txMsgStr), pdMS_TO_TICKS(500));
             ESP_LOGI(UART_RX_TASK_TAG, "Message written to buffer");
@@ -184,10 +191,10 @@ static void mqtt_tx_task(void *arg)
     esp_log_level_set(MQTT_TX_TASK_TAG, ESP_LOG_INFO);
     time_t now = 0;
 	char txMsgStr[2048];
-    memset(txMsgStr, 0, 255);
 	int msg_id;
 	while (1) {
 		ESP_LOGI(MQTT_TX_TASK_TAG, "Waiting for message from buffer");
+		memset(txMsgStr, 0, 2048);
 		xMessageBufferReceive(txMsgBuf, (void*)txMsgStr, sizeof(txMsgStr), portMAX_DELAY);
 		ESP_LOGI(MQTT_TX_TASK_TAG, "Message received: %s", txMsgStr);
 		if(!mqtt_ready) {
@@ -198,7 +205,7 @@ static void mqtt_tx_task(void *arg)
 		ESP_LOGI(MQTT_TX_TASK_TAG, "Publishing");
 		msg_id = esp_mqtt_client_publish(client, MQTT_TOPIC, txMsgStr, 0, 1, 0);
         time(&now);
-		ESP_LOGI(MQTT_TX_TASK_TAG, "Message #%d published at %ld", msg_id, now);
+		ESP_LOGI(MQTT_TX_TASK_TAG, "Message #%d published at %ld into topic %s", msg_id, now, MQTT_TOPIC);
 	}
 }
 
@@ -213,7 +220,7 @@ void app_main(void)
     sprintf(mcu_id, "%02X:%02X:%02X:%02X:%02X:%02X", mcu_id_raw[0], mcu_id_raw[1], mcu_id_raw[2], mcu_id_raw[3], mcu_id_raw[4], mcu_id_raw[5]);
     ESP_LOGI(TAG, "[APP] MCU ID: %s", mcu_id);
     strcpy(MQTT_TOPIC, MQTT_TOPIC_BASE);
-    strcat(MQTT_TOPIC, "-");
+    strcat(MQTT_TOPIC, "/");
     strcat(MQTT_TOPIC, mcu_id);
     ESP_LOGI(TAG, "[APP] MQTT topic: %s", MQTT_TOPIC);
 
