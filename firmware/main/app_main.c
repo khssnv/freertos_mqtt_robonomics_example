@@ -173,9 +173,11 @@ static void uart_rx_task(void *arg)
             ESP_LOGI(UART_RX_TASK_TAG, "Raw data (%d bytes): '%s'", rxBytes, (char*)data);
             ESP_LOG_BUFFER_HEXDUMP(UART_RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
 			pm_data_t pm = decode_pms3003_data(data, 10); //atmospheric from 10th byte, standard from 4th
-            // sprintf(txMsgStr, "ts=%ld, PM1=%d, PM2.5=%d, PM10=%d", now, pm.pm1_0, pm.pm2_5, pm.pm10);
             memset(txMsgStr, 0, 255);
-            sprintf(txMsgStr, "{\"esp32mac\": \"%s\", \"software_version\": \"0.1.0\", \"sensordatavalues\": [{\"value_type\": \"SDS_P1\", \"value\": \"%d\"}, {\"value_type\": \"SDS_P2\", \"value\": \"%d\"}, {\"value_type\": \"GPS_lat\", \"value\": \"1\"}, {\"value_type\": \"GPS_lon\", \"value\": \"1\"}]}", mcu_id, pm.pm1_0, pm.pm2_5);
+            // Sensors Connectivity compatible JSON
+            // sprintf(txMsgStr, "{\"esp32mac\": \"%s\", \"software_version\": \"0.1.0\", \"sensordatavalues\": [{\"value_type\": \"SDS_P1\", \"value\": \"%d\"}, {\"value_type\": \"SDS_P2\", \"value\": \"%d\"}, {\"value_type\": \"GPS_lat\", \"value\": \"1\"}, {\"value_type\": \"GPS_lon\", \"value\": \"1\"}]}", mcu_id, pm.pm1_0, pm.pm2_5);
+            // Simplified format
+            sprintf(txMsgStr, "ts=%ld, PM1=%d, PM2.5=%d, PM10=%d", now, pm.pm1_0, pm.pm2_5, pm.pm10);
             ESP_LOGI(UART_RX_TASK_TAG, "Writing to buffer: '%s'", txMsgStr);
             xMessageBufferSend(txMsgBuf, (void*) txMsgStr, strlen(txMsgStr), pdMS_TO_TICKS(500));
             ESP_LOGI(UART_RX_TASK_TAG, "Message written to buffer");
