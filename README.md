@@ -23,26 +23,25 @@ In order to deliver sensor measurements to Robonomics network, on a firmware lev
 ![Sending](images/send.svg)
 
 In our example we use AIRA cloud deployment available by public IP address and domain name assigned.
-On AIRA instance we receive with [Sensors Connectivity](https://wiki.robonomics.network/docs/sensors-connectivity/).
-Please check Sensors Connectivity package documentation describes how to forward data to Robonomics network in IPFS or Roboonmics on Substrate Datalog.
-Here we setup output to IPFS.
+On AIRA instance we setup `mosquitto` MQTT broker and subscribe to `/freertos_mqtt_robonomics_example/98:F4:AB:72:23:C4` topic to get messages from MQTT.
+Then we pass messages to `robonomics io` writer by pipe.
 
 ![Receiving](images/recv.svg)
 
-Now data available in Robonomics Network and we can read it with Robonomics IO utility.
+Now data available in Robonomics Network and we can read it with `robonomics io` again.
 
 Firmware
 --------
 
 We use [ESP-MQTT sample application with TCP transport](https://github.com/espressif/esp-idf/tree/master/examples/protocols/mqtt/tcp) as a basis.
-We only modify `main/app_main.c` for UART connection to the sensor, SNTP time synchronizatin and periodic MQTT publisher routine.
+We only modify `main/app_main.c` for UART connection to the sensor, SNTP time synchronization and periodic MQTT publisher routine.
+If you are trying to repeat the project, and it's your first ESP IDF based project, at first please follow [Espressif's ESP-IDF Programming guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html#installation-step-by-step) introduction in order to familiarize with firmware operations like configuration, build and upload with `idf.py` tool.
 
 ### Wi-Fi Configuration
 
 In order to communicate with AIRA instance deployed in cloud, our microcontroller requires Internet connection.
 We use ESP32's Wi-Fi for it.
 Espressif provides utilities to configure on-board Wi-Fi.
-You may find more on how to configure ESP32 development environment on your system in [Espressif's ESP-IDF Programming guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html#installation-step-by-step).
 In our example we use development environment with Ubuntu 20.04 GNU/Linux.
 To configure Wi-Fi we go to project folder and run SDK configuration tool.
 
@@ -53,7 +52,7 @@ idf.py menuconfig
 
 Then we set Wi-Fi access point SSID and password in `Example Connection Configuration` section.
 
-TODO: menuconfig screenshot
+![Menuconfig Wi-Fi](images/menuconfig-wi-fi.png)
 
 ### MQTT endpoint configuration
 
@@ -68,45 +67,51 @@ idf.py menuconfig
 
 Set `Broker URL` in `Example Configuration` section.
 
+![Menuconfig MQTT](images/menuconfig-mqtt.png)
+
 Second thing is MQTT topic.
 We set it in firmware with project name prefix followed with our ESP32 MAC address.
 It gives us `/freertos_mqtt_robonomics_example/98:F4:AB:72:23:C4` for our particular microchip.
 
-### Data format
-
-Sensor Connectivity package requires JSON formatted data with mandatory fields.
-We encode data with JSON string hard-coding geolocation values while our hardware setup contains no GNSS.
-Also we use `SDS_Px` value types while it is only supported types for particulated matter values for the moment of writing.
-
-Read data from Robonomics
--------------------------
+From MQTT to Robonomics
+-----------------------
 
 At first let's check we receive data by MQTT.
-We can subscribe to our Mosquitto MQTT broker for it.
+We can subscribe to our Mosquitto MQTT broker topic device publish to.
 
 ```console
 $ nix-shell -p mosquitto --run "mosquitto_sub -h localhost -t '/freertos_mqtt_robonomics_example/98:F4:AB:72:23:C4'"
-{"esp32mac": "98:F4:AB:72:23:C4", "software_version": "0.1.0", "sensordatavalues": [{"value_type": "SDS_P1", "value": "4"}, {"value_type": "SDS_P2", "value": "6"}, {"value_type": "GPS_lat", "value": "1"}, {"value_type": "GPS_lon", "value": "1"}]}
+ts=1615651809, PM1=2, PM2.5=6, PM10=3
 ```
 
-We got our JSON string means AIRA receives data by MQTT correctly.
+Here we bring `mosquitto` package into our environment to use `mosquitto_sub` utility.
+Then we subscribe to the topic set in the firmware.
+We got our measurements means AIRA receives data by MQTT correctly.
+Now let's pipe these messages to Robonomics Network.
 
-Now let's check `Sensors Connectivity` package running.
+```console
+nix-shell -p mosquitto --run "mosquitto_sub -h localhost -t '/freertos_mqtt_robonomics_example/98:F4:AB:72:23:C4'" | robonomics io write pubsub --bootnodes=/ip4/127.0.0.1/tcp/34333 /freertos_mqtt_robonomics_example
+```
 
-TODO: how to check it?
+Here we use `robonomics` utility to publish messages in pubsub channel `/freertos_mqtt_robonomics_example`.
+We specify `bootnodes` to ensure at least on connection established.
 
-Lastly let's check forwarding works corretcly and we can subscribe to data with Robonomics Datalog.
+Now we are read these messages from the same pubsub channel.
 
-TODO
-
-nix-shell -p mosquitto --run "mosquitto_sub -h localhost -t '/freertos_mqtt_robonomics_example/PMS3003-98:F4:AB:72:23:C4' | robonomics io write pubsub '/freertos_mqtt_robonomics_example/PMS3003-98:F4:AB:72:23:C4'"
-robonomics io read pubsub '/freertos_mqtt_robonomics_example/PMS3003-98:F4:AB:72:23:C4'
-
-Conclusion
-----------
+```console
+$ robonomics io read pubsub --listen /ip4/127.0.0.1/tcp/34333 /freertos_mqtt_robonomics_example
+2021-03-27 15:15:51  Generated random peer id: 12D3KooWB2nym5E6c3aPpnPKK5wB9Z6n9eZzcXSpyUBozxhi6dam
+2021-03-27 15:15:51  Subscribed to topic: _robonomics_pubsub_peer_discovery
+2021-03-27 15:15:51  Subscribed to topic: /freertos_mqtt_robonomics_example
+2021-03-27 15:15:56  New peer connected: PeerId("12D3KooWRPLCioD2b9XLZTZJQELSAuQAyTrHUKzRktrQHtTSs6kS")
+2021-03-27 15:15:56  GRAFT: Mesh link added for peer: PeerId("12D3KooWRPLCioD2b9XLZTZJQELSAuQAyTrHUKzRktrQHtTSs6kS") in topic: TopicHash { hash: "_robonomics_pubsub_peer_discovery" }
+ts=1616843855, PM1=3, PM2.5=4, PM10=3
+```
 
 Original resources used
 -----------------------
+
 * ESP32 DevKitC pinout from GoJimmy's blog https://gojimmypi.blogspot.com/2017/03/jtag-debugging-for-esp32.html
 * PSM3003 data structure and decoder from OpenAirProject https://github.com/openairproject/sensor-esp32
+
 Thank you all!
