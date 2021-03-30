@@ -1,7 +1,7 @@
 Connect an Amazon FreeRTOS device to Robonomics by MQTT
 =======================================================
 
-Here we demonstrate how a microcontroller running [Amazon's FreeRTOS](https://aws.amazon.com/freertos/) may connect to Robonomics Network by MQTT.
+Here we demonstrate how a microcontroller running [Amazon Web Services FreeRTOS](https://aws.amazon.com/freertos/) may connect to Robonomics Network by MQTT.
 We use [ESP32 DevKitC](https://devices.amazonaws.com/detail/a3G0L00000AANtjUAH/ESP32-WROOM-32-DevKitC/) with FreeRTOS distribution and MQTT implementation provided by [Espressif IoT Development Framework](https://github.com/espressif/esp-idf) while Espressif is a vendor of the microcontroller used.
 Also there is a [PMS-3003]() sensor for demonstration purposes.
 Sensor measures presence of particulated matter in the air and one may use it to estimate air quality.
